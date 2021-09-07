@@ -1,0 +1,1851 @@
+Description: (SO0136-sa) - AWS MLOps Framework (Single Account Option). Version v1.3.0
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: MLOps Framework Settings
+        Parameters:
+          - NOTIFICATIONEMAIL
+          - CodeCommitRepoAddress
+          - ExistingS3Bucket
+          - ExistingECRRepo
+          - USEMODELREGISTRY
+          - CREATEMODELREGISTRY
+    ParameterLabels:
+      NOTIFICATIONEMAIL:
+        default: Notification Email (Required)
+      CodeCommitRepoAddress:
+        default: CodeCommit Repo URL Address (Optional)
+      ExistingS3Bucket:
+        default: Name of an Existing S3 Bucket (Optional)
+      ExistingECRRepo:
+        default: Name of an Existing Amazon ECR repository (Optional)
+      USEMODELREGISTRY:
+        default: Do you want to use SageMaker Model Registry?
+      CREATEMODELREGISTRY:
+        default: Do you want the solution to create a SageMaker's model package group?
+Parameters:
+  NOTIFICATIONEMAIL:
+    Type: String
+    AllowedPattern: '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    ConstraintDescription: Please enter an email address with correct format (example@exmaple.com)
+    Description: email for pipeline outcome notifications
+    MaxLength: 320
+    MinLength: 5
+  CodeCommitRepoAddress:
+    Type: String
+    AllowedPattern: >-
+      ^(((https:\/\/|ssh:\/\/)(git\-codecommit)\.[a-zA-Z0-9_.+-]+(amazonaws\.com\/)[a-zA-Z0-9-.]+(\/)[a-zA-Z0-9-.]+(\/)[a-zA-Z0-9-.]+$)|^$)
+    ConstraintDescription: >-
+      CodeCommit address must follow the pattern: ssh or
+      https://git-codecommit.REGION.amazonaws.com/version/repos/REPONAME
+    Description: AWS CodeCommit repository clone URL to connect to the framework.
+    MaxLength: 320
+    MinLength: 0
+  ExistingS3Bucket:
+    Type: String
+    AllowedPattern: >-
+      ((?=^.{3,63}$)(?!^(\d+\.)+\d+$)(^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$)|^$)
+    Description: >-
+      Name of existing S3 bucket to be used for ML assests. S3 Bucket must be in
+      the same region as the deployed stack, and has versioning enabled. If not
+      provided, a new S3 bucket will be created.
+    MaxLength: 63
+    MinLength: 0
+  ExistingECRRepo:
+    Type: String
+    AllowedPattern: '((?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*|^$)'
+    Description: >-
+      Name of existing Amazom ECR repository for custom algorithms. If not
+      provided, a new ECR repo will be created.
+    MaxLength: 63
+    MinLength: 0
+  USEMODELREGISTRY:
+    Type: String
+    Default: 'No'
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+    Description: Will Amazon SageMaker's Model Registry be used to provision models?
+  CREATEMODELREGISTRY:
+    Type: String
+    Default: 'No'
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+    Description: >-
+      Do you want the solution to create the SageMaker Model Package Group Name
+      (i.e., Model Registry)
+Conditions:
+  GitAddressProvided: !Not 
+    - !Equals 
+      - !Ref CodeCommitRepoAddress
+      - ''
+  S3BucketProvided: !Not 
+    - !Equals 
+      - !Ref ExistingS3Bucket
+      - ''
+  ECRProvided: !Not 
+    - !Equals 
+      - !Ref ExistingECRRepo
+      - ''
+  CreateModelRegistryCondition: !Equals 
+    - !Ref CREATEMODELREGISTRY
+    - 'Yes'
+  CreateS3Bucket: !Equals 
+    - !Ref ExistingS3Bucket
+    - ''
+  CreateECRRepo: !Equals 
+    - !Ref ExistingECRRepo
+    - ''
+  AnonymousDatatoAWS: !Equals 
+    - !FindInMap 
+      - AnonymousData
+      - SendAnonymousData
+      - Data
+    - 'Yes'
+  CDKMetadataAvailable: !Or 
+    - !Or 
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - af-south-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-east-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-northeast-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-northeast-2
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-south-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-southeast-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ap-southeast-2
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - ca-central-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - cn-north-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - cn-northwest-1
+    - !Or 
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-central-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-north-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-south-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-west-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-west-2
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - eu-west-3
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - me-south-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - sa-east-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - us-east-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - us-east-2
+    - !Or 
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - us-west-1
+      - !Equals 
+        - !Ref 'AWS::Region'
+        - us-west-2
+Resources:
+  accessLogs751B1465:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: This is the access bucket
+  accessLogsPolicy8C9988FF:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref accessLogs751B1465
+      PolicyDocument:
+        Statement:
+          - Action: '*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+            Effect: Deny
+            Principal: '*'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - accessLogs751B1465
+                  - Arn
+                - /*
+            Sid: HttpsOnly
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/accessLogs/Policy/Resource
+  pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName: !Ref accessLogs751B1465
+        LogFilePrefix: assets_bucket_access_logs
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/pipeline-assets-279d5d49-fabe-4eab-b651-7c6b90c6a70c/Resource
+    Condition: CreateS3Bucket
+  pipelineassets279d5d49fabe4eabb6517c6b90c6a70cPolicy31094E7F:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+      PolicyDocument:
+        Statement:
+          - Action: '*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+            Effect: Deny
+            Principal: '*'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+                  - Arn
+                - /*
+            Sid: HttpsOnly
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/pipeline-assets-279d5d49-fabe-4eab-b651-7c6b90c6a70c/Policy/Resource
+    Condition: CreateS3Bucket
+  ECRRepoC36DC9E6:
+    Type: 'AWS::ECR::Repository'
+    Properties:
+      ImageScanningConfiguration:
+        ScanOnPush: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/ECRRepo/Resource
+    Condition: CreateECRRepo
+  blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName: !Ref accessLogs751B1465
+        LogFilePrefix: blueprint-repository-35524fcb-831f-4f31-b8e0-01783baf296d
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/blueprint-repository-35524fcb-831f-4f31-b8e0-01783baf296d/Resource
+  blueprintrepository35524fcb831f4f31b8e001783baf296dPolicyE9268EA6:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+      PolicyDocument:
+        Statement:
+          - Action: '*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+            Effect: Deny
+            Principal: '*'
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                  - Arn
+                - /*
+            Sid: HttpsOnly
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/blueprint-repository-35524fcb-831f-4f31-b8e0-01783baf296d/Policy/Resource
+  SolutionHelperServiceRoleB95702BC:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Join 
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/SolutionHelper/ServiceRole/Resource
+  SolutionHelperC369AAA8:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub 'solutions-${AWS::Region}'
+        S3Key: >-
+          aws-mlops-framework/v1.3.0/asset4d44a3723bf02fe2c8be57dd5d53080d048d3bb277014d5f6bbfed2c6d8c1a56.zip
+      Role: !GetAtt 
+        - SolutionHelperServiceRoleB95702BC
+        - Arn
+      Environment:
+        Variables:
+          AWS_SDK_USER_AGENT: '{"user_agent_extra": "AwsSolution/SO0136/v1.3.0"}'
+      Handler: lambda_function.handler
+      Runtime: python3.8
+      Timeout: 300
+    DependsOn:
+      - SolutionHelperServiceRoleB95702BC
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: The lambda function does not need to be attached to a vpc.
+          - id: W58
+            reason: >-
+              The lambda functions role already has permissions to write
+              cloudwatch logs
+          - id: W92
+            reason: >-
+              The lambda function does need to define
+              ReservedConcurrentExecutions
+  CreateUniqueID:
+    Type: 'Custom::CreateUUID'
+    Properties:
+      ServiceToken: !GetAtt 
+        - SolutionHelperC369AAA8
+        - Arn
+      Resource: UUID
+      CreateModelRegistry: !Ref CREATEMODELREGISTRY
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/CreateUniqueID/Default
+  SageMakerModelRegistry:
+    Type: 'AWS::SageMaker::ModelPackageGroup'
+    Properties:
+      ModelPackageGroupName: !Join 
+        - ''
+        - - mlops-model-registry-
+          - !Select 
+            - 0
+            - !Split 
+              - '-'
+              - !GetAtt 
+                - CreateUniqueID
+                - UUID
+      ModelPackageGroupDescription: SageMaker model package group name (model registry) for mlops
+      Tags:
+        - Key: stack-name
+          Value: !Ref 'AWS::StackName'
+    DependsOn:
+      - CreateUniqueID
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/SageMakerModelRegistry
+    Condition: CreateModelRegistryCondition
+  CustomResourceLambdaServiceRole757E6AFA:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Join 
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/CustomResourceLambda/ServiceRole/Resource
+  CustomResourceLambdaServiceRoleDefaultPolicy2AB589DB:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::solutions-'
+                  - !Ref 'AWS::Region'
+              - !Join 
+                - ''
+                - - 'arn:aws:s3:::solutions-'
+                  - !Ref 'AWS::Region'
+                  - /*
+          - Action:
+              - 's3:DeleteObject*'
+              - 's3:PutObject*'
+              - 's3:Abort*'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - >-
+                      blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                    - Arn
+                  - /*
+        Version: 2012-10-17
+      PolicyName: CustomResourceLambdaServiceRoleDefaultPolicy2AB589DB
+      Roles:
+        - !Ref CustomResourceLambdaServiceRole757E6AFA
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/CustomResourceLambda/ServiceRole/DefaultPolicy/Resource
+  CustomResourceLambda42C1FE6E:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub 'solutions-${AWS::Region}'
+        S3Key: >-
+          aws-mlops-framework/v1.3.0/asseta644b02aab1de4225b1e3df5ed8db405aaafd82d0c927bb02009787d536e08cc.zip
+      Role: !GetAtt 
+        - CustomResourceLambdaServiceRole757E6AFA
+        - Arn
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Join 
+            - ''
+            - - solutions-
+              - !Ref 'AWS::Region'
+          FILE_KEY: aws-mlops-framework/v1.3.0/blueprints.zip
+          DESTINATION_BUCKET: !Ref blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+          LOG_LEVEL: INFO
+          AWS_SDK_USER_AGENT: '{"user_agent_extra": "AwsSolution/SO0136/v1.3.0"}'
+      Handler: index.on_event
+      MemorySize: 256
+      Runtime: python3.8
+      Timeout: 600
+    DependsOn:
+      - CustomResourceLambdaServiceRoleDefaultPolicy2AB589DB
+      - CustomResourceLambdaServiceRole757E6AFA
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: The lambda function does not need to be attached to a vpc.
+          - id: W58
+            reason: >-
+              The lambda functions role already has permissions to write
+              cloudwatch logs
+          - id: W92
+            reason: >-
+              The lambda function does need to define
+              ReservedConcurrentExecutions
+  CustomResourceCopyAssets:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Properties:
+      ServiceToken: !GetAtt 
+        - CustomResourceLambda42C1FE6E
+        - Arn
+    DependsOn:
+      - blueprintrepository35524fcb831f4f31b8e001783baf296dPolicyE9268EA6
+      - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/CustomResourceCopyAssets/Default
+  mlopscloudformationrole867810B0:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/mlopscloudformationrole/Resource
+  lambdaOrchestratorPolicy1A0EFCB1:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'cloudformation:CreateStack'
+              - 'cloudformation:DeleteStack'
+              - 'cloudformation:UpdateStack'
+              - 'cloudformation:ListStackResources'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':cloudformation:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':stack/mlops-pipeline*/*'
+          - Action:
+              - 'iam:CreateRole'
+              - 'iam:DeleteRole'
+              - 'iam:DeleteRolePolicy'
+              - 'iam:GetRole'
+              - 'iam:GetRolePolicy'
+              - 'iam:PassRole'
+              - 'iam:PutRolePolicy'
+              - 'iam:AttachRolePolicy'
+              - 'iam:DetachRolePolicy'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':iam::'
+                - !Ref 'AWS::AccountId'
+                - ':role/mlops-pipeline*'
+          - Action:
+              - 'ecr:CreateRepository'
+              - 'ecr:DescribeRepositories'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':ecr:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':repository/'
+                - !If 
+                  - ECRProvided
+                  - !Ref ExistingECRRepo
+                  - !Ref ECRRepoC36DC9E6
+          - Action:
+              - 'codebuild:CreateProject'
+              - 'codebuild:DeleteProject'
+              - 'codebuild:BatchGetProjects'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':codebuild:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':project/ContainerFactory*'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':codebuild:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':project/VerifySagemaker*'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':codebuild:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':report-group/*'
+          - Action:
+              - 'lambda:CreateFunction'
+              - 'lambda:DeleteFunction'
+              - 'lambda:InvokeFunction'
+              - 'lambda:PublishLayerVersion'
+              - 'lambda:DeleteLayerVersion'
+              - 'lambda:GetLayerVersion'
+              - 'lambda:GetFunctionConfiguration'
+              - 'lambda:GetFunction'
+              - 'lambda:AddPermission'
+              - 'lambda:RemovePermission'
+              - 'lambda:UpdateFunctionConfiguration'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':lambda:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':layer:*'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':lambda:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':function:*'
+          - Action:
+              - 's3:GetObject'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                - Arn
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':s3:::'
+                  - !If 
+                    - S3BucketProvided
+                    - !Ref ExistingS3Bucket
+                    - !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - >-
+                      blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                    - Arn
+                  - /*
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':s3:::'
+                  - !If 
+                    - S3BucketProvided
+                    - !Ref ExistingS3Bucket
+                    - !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+                  - /*
+          - Action:
+              - 'codepipeline:CreatePipeline'
+              - 'codepipeline:UpdatePipeline'
+              - 'codepipeline:DeletePipeline'
+              - 'codepipeline:GetPipeline'
+              - 'codepipeline:GetPipelineState'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':codepipeline:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':mlops-pipeline*'
+          - Action:
+              - 'apigateway:POST'
+              - 'apigateway:PATCH'
+              - 'apigateway:DELETE'
+              - 'apigateway:GET'
+              - 'apigateway:PUT'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':apigateway:'
+                  - !Ref 'AWS::Region'
+                  - '::/restapis/*'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':apigateway:'
+                  - !Ref 'AWS::Region'
+                  - '::/restapis'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':apigateway:'
+                  - !Ref 'AWS::Region'
+                  - '::/account'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':apigateway:'
+                  - !Ref 'AWS::Region'
+                  - '::/usageplans'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':apigateway:'
+                  - !Ref 'AWS::Region'
+                  - '::/usageplans/*'
+          - Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:DescribeLogGroups'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':logs:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':log-group:*'
+          - Action:
+              - 's3:CreateBucket'
+              - 's3:PutEncryptionConfiguration'
+              - 's3:PutBucketVersioning'
+              - 's3:PutBucketPublicAccessBlock'
+              - 's3:PutBucketLogging'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':s3:::*'
+          - Action: 's3:PutObject'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':s3:::'
+                - !If 
+                  - S3BucketProvided
+                  - !Ref ExistingS3Bucket
+                  - !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+                - /*
+          - Action:
+              - 'sns:CreateTopic'
+              - 'sns:DeleteTopic'
+              - 'sns:Subscribe'
+              - 'sns:Unsubscribe'
+              - 'sns:GetTopicAttributes'
+              - 'sns:SetTopicAttributes'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':sns:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':mlops-pipeline*-*PipelineNotification*'
+          - Action:
+              - 'events:PutRule'
+              - 'events:DescribeRule'
+              - 'events:PutTargets'
+              - 'events:RemoveTargets'
+              - 'events:DeleteRule'
+              - 'events:PutEvents'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':events:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':rule/*'
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':events:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':event-bus/*'
+        Version: 2012-10-17
+      PolicyName: lambdaOrchestratorPolicy1A0EFCB1
+      Roles:
+        - !Ref mlopscloudformationrole867810B0
+        - !Ref PipelineOrchestrationLambdaFunctionServiceRoleE64D6F74
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W76
+            reason: A complex IAM policy is required for this resource.
+  sagemakerlayer1589FAB3:
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      Content:
+        S3Bucket: !Ref blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+        S3Key: blueprints/byom/lambdas/sagemaker_layer.zip
+      CompatibleRuntimes:
+        - python3.8
+    DependsOn:
+      - CustomResourceCopyAssets
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/sagemakerlayer/Resource
+  PipelineOrchestrationLambdaFunctionServiceRoleE64D6F74:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: 2012-10-17
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource: !Join 
+                  - ''
+                  - - 'arn:'
+                    - !Ref 'AWS::Partition'
+                    - ':logs:'
+                    - !Ref 'AWS::Region'
+                    - ':'
+                    - !Ref 'AWS::AccountId'
+                    - ':log-group:/aws/lambda/*'
+            Version: 2012-10-17
+          PolicyName: LambdaFunctionServiceRolePolicy
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaFunctionServiceRole/Resource
+  PipelineOrchestrationLambdaFunctionServiceRoleDefaultPolicy3DDDD50A:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'xray:PutTraceSegments'
+              - 'xray:PutTelemetryRecords'
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - 's3:GetObject*'
+              - 's3:GetBucket*'
+              - 's3:List*'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - >-
+                      blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+                    - Arn
+                  - /*
+          - Action: 'iam:passrole'
+            Effect: Allow
+            Resource: !GetAtt 
+              - mlopscloudformationrole867810B0
+              - Arn
+        Version: 2012-10-17
+      PolicyName: PipelineOrchestrationLambdaFunctionServiceRoleDefaultPolicy3DDDD50A
+      Roles:
+        - !Ref PipelineOrchestrationLambdaFunctionServiceRoleE64D6F74
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W12
+            reason: >-
+              Lambda needs the following minimum required permissions to send
+              trace data to X-Ray and access ENIs in a VPC.
+  PipelineOrchestrationLambdaFunction7EE5E931:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub 'solutions-${AWS::Region}'
+        S3Key: >-
+          aws-mlops-framework/v1.3.0/assetf21f89e1b0b6c06ce874cf9d7d0352dd1a061b1253cf286072130407907a8ed7.zip
+      Role: !GetAtt 
+        - PipelineOrchestrationLambdaFunctionServiceRoleE64D6F74
+        - Arn
+      Environment:
+        Variables:
+          BLUEPRINT_BUCKET_URL: !GetAtt 
+            - blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+            - RegionalDomainName
+          BLUEPRINT_BUCKET: !Ref blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+          ACCESS_BUCKET: !Ref accessLogs751B1465
+          ASSETS_BUCKET: !If 
+            - S3BucketProvided
+            - !Ref ExistingS3Bucket
+            - !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+          CFN_ROLE_ARN: !GetAtt 
+            - mlopscloudformationrole867810B0
+            - Arn
+          PIPELINE_STACK_NAME: mlops-pipeline
+          NOTIFICATION_EMAIL: !Ref NOTIFICATIONEMAIL
+          REGION: !Ref 'AWS::Region'
+          IS_MULTI_ACCOUNT: 'False'
+          USE_MODEL_REGISTRY: !Ref USEMODELREGISTRY
+          ECR_REPO_NAME: !If 
+            - ECRProvided
+            - !Ref ExistingECRRepo
+            - !Ref ECRRepoC36DC9E6
+          ECR_REPO_ARN: !If 
+            - ECRProvided
+            - !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':ecr:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':repository/'
+                - !Ref ExistingECRRepo
+            - !GetAtt 
+              - ECRRepoC36DC9E6
+              - Arn
+          LOG_LEVEL: DEBUG
+          AWS_SDK_USER_AGENT: '{"user_agent_extra": "AwsSolution/SO0136/v1.3.0"}'
+      Handler: index.handler
+      Layers:
+        - !Ref sagemakerlayer1589FAB3
+      Runtime: python3.8
+      Timeout: 600
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - PipelineOrchestrationLambdaFunctionServiceRoleDefaultPolicy3DDDD50A
+      - PipelineOrchestrationLambdaFunctionServiceRoleE64D6F74
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: The lambda function does not need to be attached to a vpc.
+          - id: W58
+            reason: >-
+              The lambda functions role already has permissions to write
+              cloudwatch logs
+          - id: W92
+            reason: >-
+              The lambda function does need to define
+              ReservedConcurrentExecutions
+  PipelineOrchestrationApiAccessLogGroup1BD28E64:
+    Type: 'AWS::Logs::LogGroup'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W86
+            reason: >-
+              Retention period for CloudWatchLogs LogGroups are set to 'Never
+              Expire' to preserve customer data indefinitely
+          - id: W84
+            reason: >-
+              By default CloudWatchLogs LogGroups data is encrypted using the
+              CloudWatch server-side encryption keys (AWS Managed Keys)
+  PipelineOrchestrationLambdaRestApi0420670E:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      Name: !Join 
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-orchestrator'
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Resource
+  PipelineOrchestrationLambdaRestApiDeployment00B8E19C52f9645088b6e3aeec61aa145f5eaff9:
+    Type: 'AWS::ApiGateway::Deployment'
+    Properties:
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+      Description: Automatically created by the RestApi construct
+    DependsOn:
+      - PipelineOrchestrationLambdaRestApipipelinestatusPOSTBECDEDF1
+      - PipelineOrchestrationLambdaRestApipipelinestatusE49CAC82
+      - PipelineOrchestrationLambdaRestApiprovisionpipelinePOSTFD9D81F6
+      - PipelineOrchestrationLambdaRestApiprovisionpipelineA402C4B8
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W45
+            reason: >-
+              ApiGateway has AccessLogging enabled in AWS::ApiGateway::Stage
+              resource, but cfn_nag checkes for it in
+              AWS::ApiGateway::Deployment resource
+  PipelineOrchestrationLambdaRestApiDeploymentStageprodAD71884A:
+    Type: 'AWS::ApiGateway::Stage'
+    Properties:
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+      AccessLogSetting:
+        DestinationArn: !GetAtt 
+          - PipelineOrchestrationApiAccessLogGroup1BD28E64
+          - Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","user":"$context.identity.user","caller":"$context.identity.caller","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}
+      DeploymentId: !Ref >-
+        PipelineOrchestrationLambdaRestApiDeployment00B8E19C52f9645088b6e3aeec61aa145f5eaff9
+      MethodSettings:
+        - DataTraceEnabled: true
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          ResourcePath: /*
+      StageName: prod
+      TracingEnabled: true
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/DeploymentStage.prod/Resource
+  PipelineOrchestrationLambdaRestApiprovisionpipelineA402C4B8:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt 
+        - PipelineOrchestrationLambdaRestApi0420670E
+        - RootResourceId
+      PathPart: provisionpipeline
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/provisionpipeline/Resource
+  PipelineOrchestrationLambdaRestApiprovisionpipelinePOSTApiPermissionawsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AEPOSTprovisionpipeline3D8D353F:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 
+        - PipelineOrchestrationLambdaFunction7EE5E931
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join 
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref PipelineOrchestrationLambdaRestApi0420670E
+          - /
+          - !Ref PipelineOrchestrationLambdaRestApiDeploymentStageprodAD71884A
+          - /POST/provisionpipeline
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/provisionpipeline/POST/ApiPermission.awsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AE.POST..provisionpipeline
+  PipelineOrchestrationLambdaRestApiprovisionpipelinePOSTApiPermissionTestawsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AEPOSTprovisionpipelineAE38C006:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 
+        - PipelineOrchestrationLambdaFunction7EE5E931
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join 
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref PipelineOrchestrationLambdaRestApi0420670E
+          - /test-invoke-stage/POST/provisionpipeline
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/provisionpipeline/POST/ApiPermission.Test.awsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AE.POST..provisionpipeline
+  PipelineOrchestrationLambdaRestApiprovisionpipelinePOSTFD9D81F6:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: POST
+      ResourceId: !Ref PipelineOrchestrationLambdaRestApiprovisionpipelineA402C4B8
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+      AuthorizationType: AWS_IAM
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Join 
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':apigateway:'
+            - !Ref 'AWS::Region'
+            - ':lambda:path/2015-03-31/functions/'
+            - !GetAtt 
+              - PipelineOrchestrationLambdaFunction7EE5E931
+              - Arn
+            - /invocations
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/provisionpipeline/POST/Resource
+  PipelineOrchestrationLambdaRestApipipelinestatusE49CAC82:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt 
+        - PipelineOrchestrationLambdaRestApi0420670E
+        - RootResourceId
+      PathPart: pipelinestatus
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/pipelinestatus/Resource
+  PipelineOrchestrationLambdaRestApipipelinestatusPOSTApiPermissionawsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AEPOSTpipelinestatus5C0C3DA2:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 
+        - PipelineOrchestrationLambdaFunction7EE5E931
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join 
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref PipelineOrchestrationLambdaRestApi0420670E
+          - /
+          - !Ref PipelineOrchestrationLambdaRestApiDeploymentStageprodAD71884A
+          - /POST/pipelinestatus
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/pipelinestatus/POST/ApiPermission.awsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AE.POST..pipelinestatus
+  PipelineOrchestrationLambdaRestApipipelinestatusPOSTApiPermissionTestawsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AEPOSTpipelinestatusD4AB9434:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt 
+        - PipelineOrchestrationLambdaFunction7EE5E931
+        - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join 
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref PipelineOrchestrationLambdaRestApi0420670E
+          - /test-invoke-stage/POST/pipelinestatus
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/pipelinestatus/POST/ApiPermission.Test.awsmlopssingleaccountframeworkPipelineOrchestrationLambdaRestApiD2B461AE.POST..pipelinestatus
+  PipelineOrchestrationLambdaRestApipipelinestatusPOSTBECDEDF1:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: POST
+      ResourceId: !Ref PipelineOrchestrationLambdaRestApipipelinestatusE49CAC82
+      RestApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+      AuthorizationType: AWS_IAM
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Join 
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':apigateway:'
+            - !Ref 'AWS::Region'
+            - ':lambda:path/2015-03-31/functions/'
+            - !GetAtt 
+              - PipelineOrchestrationLambdaFunction7EE5E931
+              - Arn
+            - /invocations
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/Default/pipelinestatus/POST/Resource
+  PipelineOrchestrationLambdaRestApiUsagePlan06C27F0E:
+    Type: 'AWS::ApiGateway::UsagePlan'
+    Properties:
+      ApiStages:
+        - ApiId: !Ref PipelineOrchestrationLambdaRestApi0420670E
+          Stage: !Ref PipelineOrchestrationLambdaRestApiDeploymentStageprodAD71884A
+          Throttle: {}
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApi/UsagePlan/Resource
+  PipelineOrchestrationLambdaRestApiCloudWatchRole6F4B9723:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+        Version: 2012-10-17
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:PutLogEvents'
+                  - 'logs:GetLogEvents'
+                  - 'logs:FilterLogEvents'
+                Effect: Allow
+                Resource: !Join 
+                  - ''
+                  - - 'arn:'
+                    - !Ref 'AWS::Partition'
+                    - ':logs:'
+                    - !Ref 'AWS::Region'
+                    - ':'
+                    - !Ref 'AWS::AccountId'
+                    - ':*'
+            Version: 2012-10-17
+          PolicyName: LambdaRestApiCloudWatchRolePolicy
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApiCloudWatchRole/Resource
+  PipelineOrchestrationLambdaRestApiAccountB62D7499:
+    Type: 'AWS::ApiGateway::Account'
+    Properties:
+      CloudWatchRoleArn: !GetAtt 
+        - PipelineOrchestrationLambdaRestApiCloudWatchRole6F4B9723
+        - Arn
+    DependsOn:
+      - PipelineOrchestrationLambdaRestApi0420670E
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/PipelineOrchestration/LambdaRestApiAccount
+  AWSMLOpsFrameworkRepositoryawsmlopssingleaccountframeworkMLOpsCodeCommitPipelineCC835E0DmainEventRule3FB93387:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      EventPattern:
+        source:
+          - aws.codecommit
+        resources:
+          - !Join 
+            - ''
+            - - 'arn:'
+              - !Ref 'AWS::Partition'
+              - ':codecommit:'
+              - !Ref 'AWS::Region'
+              - ':'
+              - !Ref 'AWS::AccountId'
+              - ':'
+              - !Select 
+                - 5
+                - !Split 
+                  - /
+                  - !Ref CodeCommitRepoAddress
+        detail-type:
+          - CodeCommit Repository State Change
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceName:
+            - main
+      State: ENABLED
+      Targets:
+        - Arn: !Join 
+            - ''
+            - - 'arn:'
+              - !Ref 'AWS::Partition'
+              - ':codepipeline:'
+              - !Ref 'AWS::Region'
+              - ':'
+              - !Ref 'AWS::AccountId'
+              - ':'
+              - !Ref MLOpsCodeCommitPipeline7DA8B5B2
+          Id: Target0
+          RoleArn: !GetAtt 
+            - MLOpsCodeCommitPipelineEventsRoleBF55A9BA
+            - Arn
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/AWSMLOpsFrameworkRepository/awsmlopssingleaccountframeworkMLOpsCodeCommitPipelineCC835E0D-main-EventRule/Resource
+    Condition: GitAddressProvided
+  TakeconfigfileRoleD1BE5721:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/Take config file/Role/Resource
+    Condition: GitAddressProvided
+  TakeconfigfileRoleDefaultPolicyC86BF094:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource:
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':logs:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':log-group:/aws/codebuild/'
+                  - !Ref Takeconfigfile940F0BB0
+              - !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':logs:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':log-group:/aws/codebuild/'
+                  - !Ref Takeconfigfile940F0BB0
+                  - ':*'
+          - Action:
+              - 'codebuild:CreateReportGroup'
+              - 'codebuild:CreateReport'
+              - 'codebuild:UpdateReport'
+              - 'codebuild:BatchPutTestCases'
+              - 'codebuild:BatchPutCodeCoverages'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':codebuild:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':report-group/'
+                - !Ref Takeconfigfile940F0BB0
+                - '-*'
+          - Action:
+              - 's3:GetObject*'
+              - 's3:GetBucket*'
+              - 's3:List*'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                    - Arn
+                  - /*
+          - Action: 'lambda:InvokeFunction'
+            Effect: Allow
+            Resource: !GetAtt 
+              - PipelineOrchestrationLambdaFunction7EE5E931
+              - Arn
+        Version: 2012-10-17
+      PolicyName: TakeconfigfileRoleDefaultPolicyC86BF094
+      Roles:
+        - !Ref TakeconfigfileRoleD1BE5721
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/Take config
+        file/Role/DefaultPolicy/Resource
+    Condition: GitAddressProvided
+  Takeconfigfile940F0BB0:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: 'aws/codebuild/standard:1.0'
+        ImagePullCredentialsType: CODEBUILD
+        PrivilegedMode: false
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt 
+        - TakeconfigfileRoleD1BE5721
+        - Arn
+      Source:
+        BuildSpec: !Join 
+          - ''
+          - - |-
+              {
+                "version": "0.2",
+                "phases": {
+                  "build": {
+                    "commands": [
+                      "ls -a",
+                      "aws lambda invoke --function-name 
+            - !Ref PipelineOrchestrationLambdaFunction7EE5E931
+            - |2-
+               --payload fileb://mlops-config.json response.json --invocation-type RequestResponse"
+                    ]
+                  }
+                }
+              }
+        Type: CODEPIPELINE
+      EncryptionKey: alias/aws/s3
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/Take config file/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: This is a managed bucket generated by CDK for codepipeline.
+          - id: W51
+            reason: This is a managed bucket generated by CDK for codepipeline.
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineRole20F62BCD:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/Role/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineRoleDefaultPolicyF794F4C5:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject*'
+              - 's3:GetBucket*'
+              - 's3:List*'
+              - 's3:DeleteObject*'
+              - 's3:PutObject*'
+              - 's3:Abort*'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                    - Arn
+                  - /*
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Resource: !GetAtt 
+              - >-
+                MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleA937F768
+              - Arn
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Resource: !GetAtt 
+              - >-
+                MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRole0EE4D4C6
+              - Arn
+          - Action: 'lambda:InvokeFunction'
+            Effect: Allow
+            Resource: !GetAtt 
+              - PipelineOrchestrationLambdaFunction7EE5E931
+              - Arn
+        Version: 2012-10-17
+      PolicyName: MLOpsCodeCommitPipelineRoleDefaultPolicyF794F4C5
+      Roles:
+        - !Ref MLOpsCodeCommitPipelineRole20F62BCD
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/Role/DefaultPolicy/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipeline7DA8B5B2:
+    Type: 'AWS::CodePipeline::Pipeline'
+    Properties:
+      RoleArn: !GetAtt 
+        - MLOpsCodeCommitPipelineRole20F62BCD
+        - Arn
+      Stages:
+        - Actions:
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: '1'
+              Configuration:
+                RepositoryName: !Select 
+                  - 5
+                  - !Split 
+                    - /
+                    - !Ref CodeCommitRepoAddress
+                BranchName: main
+                PollForSourceChanges: false
+              Name: CodeCommit
+              OutputArtifacts:
+                - Name: Artifact_Source_CodeCommit
+              RoleArn: !GetAtt 
+                - >-
+                  MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleA937F768
+                - Arn
+              RunOrder: 1
+          Name: Source
+        - Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref Takeconfigfile940F0BB0
+              InputArtifacts:
+                - Name: Artifact_Source_CodeCommit
+              Name: provision_pipeline
+              RoleArn: !GetAtt 
+                - >-
+                  MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRole0EE4D4C6
+                - Arn
+              RunOrder: 1
+          Name: TakeConfig
+      ArtifactStore:
+        Location: !Ref MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+        Type: S3
+    DependsOn:
+      - MLOpsCodeCommitPipelineRoleDefaultPolicyF794F4C5
+      - MLOpsCodeCommitPipelineRole20F62BCD
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleA937F768:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/Source/CodeCommit/CodePipelineActionRole/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleDefaultPolicy9508C70C:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject*'
+              - 's3:GetBucket*'
+              - 's3:List*'
+              - 's3:DeleteObject*'
+              - 's3:PutObject*'
+              - 's3:Abort*'
+            Effect: Allow
+            Resource:
+              - !GetAtt 
+                - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - MLOpsCodeCommitPipelineArtifactsBucketCF13C4BB
+                    - Arn
+                  - /*
+          - Action:
+              - 'codecommit:GetBranch'
+              - 'codecommit:GetCommit'
+              - 'codecommit:UploadArchive'
+              - 'codecommit:GetUploadArchiveStatus'
+              - 'codecommit:CancelUploadArchive'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':codecommit:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':'
+                - !Select 
+                  - 5
+                  - !Split 
+                    - /
+                    - !Ref CodeCommitRepoAddress
+        Version: 2012-10-17
+      PolicyName: >-
+        MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleDefaultPolicy9508C70C
+      Roles:
+        - !Ref MLOpsCodeCommitPipelineSourceCodeCommitCodePipelineActionRoleA937F768
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/Source/CodeCommit/CodePipelineActionRole/DefaultPolicy/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineEventsRoleBF55A9BA:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/EventsRole/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineEventsRoleDefaultPolicyE691CECE:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 'codepipeline:StartPipelineExecution'
+            Effect: Allow
+            Resource: !Join 
+              - ''
+              - - 'arn:'
+                - !Ref 'AWS::Partition'
+                - ':codepipeline:'
+                - !Ref 'AWS::Region'
+                - ':'
+                - !Ref 'AWS::AccountId'
+                - ':'
+                - !Ref MLOpsCodeCommitPipeline7DA8B5B2
+        Version: 2012-10-17
+      PolicyName: MLOpsCodeCommitPipelineEventsRoleDefaultPolicyE691CECE
+      Roles:
+        - !Ref MLOpsCodeCommitPipelineEventsRoleBF55A9BA
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/EventsRole/DefaultPolicy/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRole0EE4D4C6:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              AWS: !Join 
+                - ''
+                - - 'arn:'
+                  - !Ref 'AWS::Partition'
+                  - ':iam::'
+                  - !Ref 'AWS::AccountId'
+                  - ':root'
+        Version: 2012-10-17
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/TakeConfig/provision_pipeline/CodePipelineActionRole/Resource
+    Condition: GitAddressProvided
+  MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRoleDefaultPolicy897756FB:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'codebuild:BatchGetBuilds'
+              - 'codebuild:StartBuild'
+              - 'codebuild:StopBuild'
+            Effect: Allow
+            Resource: !GetAtt 
+              - Takeconfigfile940F0BB0
+              - Arn
+        Version: 2012-10-17
+      PolicyName: >-
+        MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRoleDefaultPolicy897756FB
+      Roles:
+        - !Ref >-
+          MLOpsCodeCommitPipelineTakeConfigprovisionpipelineCodePipelineActionRole0EE4D4C6
+    Metadata:
+      'aws:cdk:path': >-
+        aws-mlops-single-account-framework/MLOpsCodeCommitPipeline/TakeConfig/provision_pipeline/CodePipelineActionRole/DefaultPolicy/Resource
+    Condition: GitAddressProvided
+  SendAnonymousData:
+    Type: 'Custom::AnonymousData'
+    Properties:
+      ServiceToken: !GetAtt 
+        - SolutionHelperC369AAA8
+        - Arn
+      Resource: AnonymousMetric
+      UUID: !GetAtt 
+        - CreateUniqueID
+        - UUID
+      bucketSelected: !If 
+        - S3BucketProvided
+        - 'True'
+        - 'False'
+      gitSelected: !If 
+        - GitAddressProvided
+        - 'True'
+        - 'False'
+      Region: !Ref 'AWS::Region'
+      IsMultiAccount: 'False'
+      UseModelRegistry: !Ref USEMODELREGISTRY
+      SolutionId: SO0136
+      Version: v1.3.0
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/SendAnonymousData/Default
+    Condition: AnonymousDatatoAWS
+  CDKMetadata:
+    Type: 'AWS::CDK::Metadata'
+    Properties:
+      Analytics: >-
+        v2:deflate64:H4sIAAAAAAAAA21Sy27cMAz8ltxlbZsFCuTWzRbNJUGM7eOuyIyrrCwKotTAMPzvpR4bp0VPnBEpaGaoj/Lmk/xw9Vm9Urfo4bxbNAaQy7eo9Fkcn12vgpogQsjkiG4w0aATjCiGpKM4AWEKGsSBCCLfG40bxTFRxOmtx3ff48cUfYoZPSjveX4VRQDt5XKb9BlKr6FaerRGz9tx5asAHeRyAo9kIob5VhGIjdaHL2wVVk1Pg5LL1+R09fHs3vC9miH8hECt8S/vIUyGMluFURM/i7Zay3UTeJFG+07lTEiWaASpESZ1hiCzcRzA9hwyH94FTF5YHEku9zhWmgU0zOl4M6oIr2rmieKB44wHb1qyBX4Bb3GewJX03rG8lCK0gssmWlb/WdEDxF84lP1U9CNr760qOfxFDlpjcpEX8ZufYgOn1ELhugrNNp+SsYNceuPBGgd9wBfQRWODdcy3/jZZRhpeVw4Ubcqbok5fvh/t8sfZ4unahjmPu3ryHWtgq+hn9uJ2e3kjr69eyJgusHIzgTzV+gdreBGfDQMAAA==
+    Metadata:
+      'aws:cdk:path': aws-mlops-single-account-framework/CDKMetadata/Default
+    Condition: CDKMetadataAvailable
+Outputs:
+  PipelineOrchestrationLambdaRestApiEndpoint9B628338:
+    Value: !Join 
+      - ''
+      - - 'https://'
+        - !Ref PipelineOrchestrationLambdaRestApi0420670E
+        - .execute-api.
+        - !Ref 'AWS::Region'
+        - .
+        - !Ref 'AWS::URLSuffix'
+        - /
+        - !Ref PipelineOrchestrationLambdaRestApiDeploymentStageprodAD71884A
+        - /
+  BlueprintsBucket:
+    Description: S3 Bucket to upload MLOps Framework Blueprints
+    Value: !Join 
+      - ''
+      - - 'https://s3.console.aws.amazon.com/s3/buckets/'
+        - !Ref blueprintrepository35524fcb831f4f31b8e001783baf296d73032E6F
+  AssetsBucket:
+    Description: S3 Bucket to upload model artifact
+    Value: !Join 
+      - ''
+      - - 'https://s3.console.aws.amazon.com/s3/buckets/'
+        - !If 
+          - S3BucketProvided
+          - !Ref ExistingS3Bucket
+          - !Ref pipelineassets279d5d49fabe4eabb6517c6b90c6a70cDF8A795F
+  ECRRepoName:
+    Description: Amazon ECR repository's name
+    Value: !If 
+      - ECRProvided
+      - !Ref ExistingECRRepo
+      - !Ref ECRRepoC36DC9E6
+  ECRRepoArn:
+    Description: Amazon ECR repository's arn
+    Value: !If 
+      - ECRProvided
+      - !Join 
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':ecr:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':repository/'
+          - !Ref ExistingECRRepo
+      - !GetAtt 
+        - ECRRepoC36DC9E6
+        - Arn
+  ModelRegistryArn:
+    Description: SageMaker model package group arn
+    Value: !If 
+      - CreateModelRegistryCondition
+      - !GetAtt 
+        - SageMakerModelRegistry
+        - ModelPackageGroupArn
+      - '[No Model Package Group was created]'
+Mappings:
+  AnonymousData:
+    SendAnonymousData:
+      Data: 'Yes'
